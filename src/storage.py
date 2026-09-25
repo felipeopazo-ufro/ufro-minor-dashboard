@@ -5,6 +5,7 @@ from pathlib import Path
 import hashlib,json,os,threading
 LOCK=threading.RLock()
 FILES={'inscritos':'inscritos.xlsx','calificaciones':'calificaciones.xlsx','master':'master.xlsx','seguimiento':'seguimiento.xlsx'}
+CIP_FILE='cip_historico.xlsx'
 
 def pack(files):
     b=BytesIO()

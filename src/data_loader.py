@@ -1,8 +1,9 @@
 """Explicit adapters for inspected UFRO workbooks; unknown schemas are rejected."""
 from io import BytesIO
 import pandas as pd
-from .cleaning import text,matricula,minor,code,norm
+from .cleaning import text,matricula,minor,code,norm,canonical_code,MINORS
 from .semesters import normalize
+import re
 SCHEMAS={
 'inscritos': ('Hoja1',0,{'Matrícula':'matricula','Nombre histórico':'nombre','Programa':'minor','Inscripción histórico':'semester_enrolled'}),
 'calificaciones':('Calificaciones Minor',0,{'Matrícula':'matricula','Nombre':'nombre','Carrera/Programa':'carrera','Año':'year','Sem.':'term','Código':'codigo','Nombre Asignatura':'nombre_asignatura','Nota':'nota','Estado Final':'estado_final','Unidad':'unidad_academica','Programa Minor':'minor','Tipo Asignatura':'tipo'}),
@@ -32,6 +33,7 @@ def load_source(kind, data):
         if c in df:df[c]=df[c].map(text)
     if 'minor' in df:df['minor']=df.minor.map(minor)
     if 'codigo' in df:df['codigo']=df.codigo.map(code)
+    if 'codigo' in df:df['canonical_course_code']=df.codigo.map(canonical_code)
     if 'year' in df:df['semester']=df.apply(lambda r:pair(r.year,r.term),axis=1)
     if 'semester_enrolled' in df:df['semester_original']=df.semester_enrolled.map(text);df['semester_enrolled']=df.semester_enrolled.map(safe_sem)
     if 'enroll_year' in df:df['semester_enrolled']=df.apply(lambda r:pair(r.enroll_year,r.enroll_term),axis=1)
@@ -41,6 +43,29 @@ def load_source(kind, data):
         df['nota']=pd.to_numeric(df.nota.map(lambda x:text(x).replace(',','.')),errors='coerce')
         df['outcome']=df.estado_final.map(lambda x:{'APROBADA':'PASS','REPROBADA':'FAIL'}.get(norm(x),'UNKNOWN'))
     return df
+
+def load_cip(data):
+    """The historic CIP sheet's Código is a career ID; Source.Name has course/term."""
+    try:d=pd.read_excel(BytesIO(data),sheet_name='Asignaturas CIP',dtype=object).dropna(how='all')
+    except Exception as exc:raise ValueError('No se pudo leer la fuente histórica CIP.') from exc
+    required={'Source.Name','Matricula','Nombre_alumno','Nota','Situación'}
+    if required-set(d):raise ValueError('Faltan columnas en la fuente CIP.')
+    rows=[]
+    for i,r in d.iterrows():
+        match=re.fullmatch(r'(CIP(?:165|183|185))\s+(\d{4})-([12])\.xls[x]?',text(r['Source.Name']),re.I)
+        if not match:raise ValueError(f'Nombre de archivo CIP no reconocido en fila {i+2}.')
+        c=code(match[1]);s=normalize(f'{match[2]}-{match[3]}')
+        n=pd.to_numeric(text(r['Nota']).replace(',','.'),errors='coerce')
+        state=text(r['Situación']);outcome={'APROBADA':'PASS','REPROBADA':'FAIL'}.get(norm(state),'UNKNOWN')
+        if pd.isna(n) or not 1<=n<=7 or outcome=='UNKNOWN':raise ValueError(f'Nota o situación CIP inválida en fila {i+2}.')
+        rows.append(dict(matricula=matricula(r['Matricula']),matricula_original=text(r['Matricula']),
+            nombre=text(r['Nombre_alumno']),carrera=text(r.get('Carrera / Programa')),
+            codigo=c,canonical_course_code=canonical_code(c),semester=s,nota=float(n),
+            nota_original=text(r['Nota']),estado_final=state,outcome=outcome,
+            nombre_asignatura=c,unidad_academica='',tipo='Troncal',
+            minor=MINORS[1] if c=='CIP165' else MINORS[0],
+            source='cip_historico',source_file=text(r['Source.Name']),source_row=i+2))
+    return pd.DataFrame(rows)
 
 def validate_upload(kind,data):
     d=load_source(kind,data)
