@@ -86,7 +86,7 @@ Inspección completa de todas las hojas. Se omiten ejemplos personales; los orig
 
 | Campo original | Tipo leído | Vacíos | Valores distintos |
 |---|---|---:|---:|
-| 15292684723 | object | 0 | 41 |
+| [matrícula de ejemplo redactada] | object | 0 | 41 |
 | Alerta naranja | object | 0 | 1 |
 
 ## Inscritos Minor 2015-2026(1).xlsx
@@ -103,11 +103,11 @@ Inspección completa de todas las hojas. Se omiten ejemplos personales; los orig
 | Cohorte | int64 | 0 | 16 |
 | Inscripción histórico | object | 0 | 24 |
 
-## Calificaciones 2015-1 a 2026-1(1).xlsx
+## Calificaciones 2013-1 a 2026-1.xlsx
 
 ### Calificaciones Minor
 
-28,588 filas de datos; 17 columnas.
+30,481 filas de datos; 17 columnas.
 
 | Campo original | Tipo leído | Vacíos | Valores distintos |
 |---|---|---:|---:|
@@ -117,7 +117,7 @@ Inspección completa de todas las hojas. Se omiten ejemplos personales; los orig
 | Unidad | object | 0 | 6 |
 | Código | object | 0 | 82 |
 | Nombre Asignatura | object | 0 | 73 |
-| Matrícula | object | 0 | 11343 |
+| Matrícula | object | 0 | 11895 |
 | Nombre | object | 0 | 11096 |
 | Nota | float64 | 0 | 62 |
 | Estado Final | object | 0 | 2 |
@@ -176,7 +176,7 @@ Inspección completa de todas las hojas. Se omiten ejemplos personales; los orig
 ## Interpretación de hojas
 
 - Inscritos / Hoja1: fuente autoritativa de participación. La columna E es Inscripción histórico, formato YYYY/1 o YYYY/2.
-- Calificaciones Minor: 28.588 filas; incluye 11.201 personas, muchas sin inscripción. Se filtra por persona inscrita al calcular participaciones. Minor y tipo documentan oferta histórica; no prueban pertenencia.
+- Calificaciones Minor: 30.481 filas; incluye 11.895 matrículas, muchas sin inscripción. El histórico CIP complementario aporta 207 filas de asignaturas. Se filtra por persona inscrita al calcular participaciones. Minor y tipo documentan oferta histórica; no prueban pertenencia.
 - Padrón / Sheet1: fila 1 es título, fila 2 encabezados. 10.422 registros. Sólo se cargan nombre/carrera e identificador para el modelo; teléfonos, correos y nivel actual no aparecen en las vistas.
 - Base completa Minors: 4.376 filas, notas e inscripción/estado anteriores. 701 filas dicen No inscrito.
 - Placement Test: 298 filas. Resultados de entrada/salida y estados; inspeccionada, no usada para imponer requisito de salida inexistente.

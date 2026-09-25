@@ -19,7 +19,35 @@ def test_official_completion_overrides_deadline():
  assert len(dirae_tables(r)['EGRESADOS POR RESPALDAR'])==1
 
 def test_matching_completion_export():
- r=apply_official(result('EGRESADO'),official());assert len(dirae_tables(r)['DIRAE'])==5
+    r=apply_official(result('EGRESADO'),official());assert len(dirae_tables(r)['DIRAE'])==5
+
+def test_official_five_of_five_does_not_authorize_two_semester_extension():
+    e=calc(complete(s='2027-2'),now='2027-2');h=pd.DataFrame(e.pop('history'))
+    actual=apply_official({'enrollments':pd.DataFrame([e]),'history':h,'quality':pd.DataFrame()},official())['enrollments'].iloc[0]
+    assert actual.status=='REQUIERE REVISIÓN' and not actual.dirae_ready
+
+def test_official_five_of_five_does_not_erase_failed_core():
+    from test_rules import grade
+    e=calc([grade('DFI183','2024-1',False)]+complete(s='2027-1'),now='2027-1')
+    h=pd.DataFrame(e.pop('history'))
+    actual=apply_official({'enrollments':pd.DataFrame([e]),'history':h,'quality':pd.DataFrame()},official())['enrollments'].iloc[0]
+    assert actual.status=='ELIMINADO POR TRONCAL'
+
+def test_individual_academic_reconciliation_overrides_only_documented_four_of_five():
+    e=calc(complete(s='2027-1'),now='2027-1');h=pd.DataFrame(e.pop('history'))
+    r={'enrollments':pd.DataFrame([e]),'history':h,'quality':pd.DataFrame()}
+    adjudication=[dict(matricula='001',minor=MINORS[0],decision='ACADEMIC_5_OF_5_ONE_SEMESTER_LATE')]
+    actual=apply_official(r,official(total=4),adjudication)['enrollments'].iloc[0]
+    assert actual.status=='EGRESADO' and actual.probable_exceptionality
+    assert actual.official_total==4 and actual.total_completed==5
+    assert actual.status_reason=='5/5 académico comprobado; un semestre después del plazo ordinario. Avance histórico registraba 4/5.'
+
+def test_individual_academic_reconciliation_does_not_bypass_a_four_of_five_academic_result():
+    e=calc(complete(s='2026-2')[:-1],now='2027-1');h=pd.DataFrame(e.pop('history'))
+    actual=apply_official({'enrollments':pd.DataFrame([e]),'history':h,'quality':pd.DataFrame()},official(total=4),
+        [dict(matricula='001',minor=MINORS[0],decision='ACADEMIC_5_OF_5_ONE_SEMESTER_LATE')])['enrollments'].iloc[0]
+    assert actual.status=='REQUIERE REVISIÓN' and not actual.probable_exceptionality
+    assert 'No cumple las 3 electivas válidas requeridas' in actual.status_reason
 
 def test_official_partial_blocks_calculated_complete():
  e=apply_official(result('EGRESADO'),official(4))['enrollments'].iloc[0]

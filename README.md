@@ -32,6 +32,10 @@ Sin configuración de autenticación, la aplicación muestra sólo la pantalla d
 
 ADMIN → ACTUALIZAR DATOS → subir archivos acumulativos → Validar y procesar → revisar altas, retiros y estados → Guardar versión validada. Las fuentes deben conservar los encabezados originales. El archivo puede cambiar de nombre; también se acepta un nombre de hoja distinto si el Excel contiene una sola hoja.
 
+La fuente principal de calificaciones es el acumulado 2013-1 a 2026-1. El archivo histórico CIP se agrega por separado; su columna «Código» identifica la carrera, mientras que el código de asignatura y el semestre proceden de «Source.Name». Una versión anterior del paquete sigue abriendo y puede actualizarse mediante la pantalla administrativa.
+
+La normalización CIP→DFI se extiende a las doce correspondencias verificadas, incluidas las electivas. Se controla el nombre cuando aparecen ambos códigos. La unidad de Formación General se considera válida para la restricción de electivas de Emprendimiento; las asignaturas departamentales siguen excluidas para Ingeniería Comercial y Contador Público y Auditor. El archivo exploratorio de control se compara por separado y no alimenta el cálculo.
+
 ADMIN → CONFIGURACIÓN permite cambiar semestre, electivas/vigencias y excepciones. Al actualizar calificaciones se incorporan vigencias nuevas respaldadas por esas filas, sin sobrescribir las reglas ya revisadas. No se rellenan semestres sin evidencia. Las clasificaciones dudosas y la restricción DIFEM siguen requiriendo revisión.
 
 La lectura queda en la sesión hasta pulsar Recargar datos. Los resultados se cachean durante 15 minutos por contenido; guardar invalida el caché. Los archivos personales nunca se sirven como recursos web estáticos.
@@ -52,4 +56,4 @@ La lectura queda en la sesión hasta pulsar Recargar datos. Los resultados se ca
 `config/`: catálogo inicial no personal y plantilla de excepciones.
 `tests/`: casos académicos, seguridad, persistencia, exportación y pantallas Streamlit.
 
-`BUSINESS_RULES.md` documenta decisiones conservadoras y fuentes. `DATA_DICTIONARY.md` documenta todas las hojas inspeccionadas. `VALIDATION_RESULTS.md` contiene resultados y pruebas de esta entrega.
+`BUSINESS_RULES.md` documenta decisiones conservadoras y fuentes. `DATA_DICTIONARY.md` documenta las estructuras de fuentes sin divulgar valores personales. `VALIDATION_RESULTS.md` contiene resultados y pruebas de esta entrega.

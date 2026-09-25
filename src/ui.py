@@ -3,13 +3,13 @@ import json
 import pandas as pd
 import streamlit as st
 from .auth import require_admin
-from .data_loader import load_source,validate_upload
+from .data_loader import load_source,load_cip,validate_upload
 from .pipeline import process
 from .catalog import build_catalog
 from .semesters import ordinal
 from .official import load_official,apply_official,OFFICIAL_FILE
 from .configuration import read_csv,validate_courses,validate_exceptions
-from .storage import FILES
+from .storage import FILES,CIP_FILE
 from .excel import excel_bytes
 from .dirae import dirae_tables
 from .reconciliation import reconcile
@@ -19,11 +19,13 @@ from .semesters import normalize
 @st.cache_data(show_spinner=False,max_entries=4,ttl=900)
 def compute(files):
     sources={k:load_source(k,files[v]) for k,v in FILES.items()}
+    if CIP_FILE in files:sources['cip_historico']=load_cip(files[CIP_FILE])
     settings=json.loads(files['settings.json'])
     courses=validate_courses(files['minor_courses.csv'])
     exceptions=read_csv(files['exceptions.csv']).to_dict('records')
     result=process(sources,settings['current_semester'],courses,exceptions)
-    result=apply_official(result,load_official(files[OFFICIAL_FILE]) if OFFICIAL_FILE in files else None)
+    overrides=read_csv(files['official_reconciliation_overrides.csv']).to_dict('records') if 'official_reconciliation_overrides.csv' in files else []
+    result=apply_official(result,load_official(files[OFFICIAL_FILE]) if OFFICIAL_FILE in files else None,overrides)
     result['exceptions']=pd.DataFrame(exceptions)
     return result,sources
 
@@ -40,6 +42,9 @@ def filters(df,key):
     states=c2.multiselect('Estado',sorted(out.status.unique()),key=key+'status')
     if years:out=out[out.semester_enrolled.str[:4].isin(years)]
     if states:out=out[out.status.isin(states)]
+    if key=='pan' and 'probable_exceptionality' in out:
+        exceptionality=c2.selectbox('Probable excepcionalidad', ['Todas','Sí','No'], key=key+'probable')
+        if exceptionality!='Todas':out=out[out.probable_exceptionality== (exceptionality=='Sí')]
     return out
 
 def panorama(r,role):
@@ -68,6 +73,7 @@ def search(r):
     st.caption('Respaldo calculado a partir de calificaciones:')
     a,b,c=st.columns(3);a.metric('Troncales',f'{int(e.troncales_completed)}/2');b.metric('Electivas',f'{int(e.electives_completed)}/3');c.metric('Total',f'{int(e.total_completed)}/5')
     st.write(f'Inscripción: {e.semester_enrolled} · Límite calculado: {e.deadline_semester} · Egreso calculado: {e.graduation_semester or "No determinado"} · Excepciones: {int(e.exception_count)}')
+    st.write(f'Límite ordinario: {e.ordinary_deadline_semester} · Completitud académica: {e.completion_semester or "No determinada"} · Semestres sobre el plazo: {int(e.semesters_over_deadline)} · Probable excepcionalidad: {"Sí" if e.probable_exceptionality else "No"} · Tipo: {e.exception_type or "Ninguno"}')
     st.write(f'Pendientes según calificaciones: troncales: {e.pending_troncales or "Ninguna"}. Electivas pendientes: {int(e.pending_electives)}.')
     ex=r.get('exceptions',pd.DataFrame())
     if not ex.empty:
@@ -76,7 +82,7 @@ def search(r):
     h=r['history'];h=h[h.enrollment_id==eid].copy()
     if h.empty:st.info('Sin calificaciones registradas.');return
     h['Cuenta para Minor']=h.counted_for_completion.map({True:'Sí',False:'No'})
-    st.dataframe(h[['codigo','nombre_asignatura','course_type','semester','nota','estado_final','Cuenta para Minor','eligibility_reason','source_row']],hide_index=True,width='stretch')
+    st.dataframe(h[['codigo','canonical_course_code','nombre_asignatura','course_type','semester','nota','estado_final','Cuenta para Minor','eligibility_reason','source','source_row']],hide_index=True,width='stretch')
 
 def dirae(r):
     d=filters(r['enrollments'],'dirae');d=d[d.status=='EGRESADO']
@@ -128,13 +134,15 @@ def update(r,files,version,storage,actor,role):
         up=st.file_uploader(title,type=['xlsx'],key=k)
         if up:
             data=up.getvalue();candidate[FILES[k]]=data;changed.append(k)
+    cip_up=st.file_uploader('Calificaciones históricas CIP (.xlsx)',type=['xlsx'],key='cip_historico_upload')
+    if cip_up:candidate[CIP_FILE]=cip_up.getvalue();changed.append('cip_historico')
     official_up=st.file_uploader('Avance oficial Minor en Inglés (.xls o .xlsx)',type=['xls','xlsx'],key='official_upload')
     if official_up:candidate[OFFICIAL_FILE]=official_up.getvalue();changed.append('oficial')
     if st.button('Validar y procesar',disabled=not changed):
         try:
             row_counts={}
             for k in changed:
-                row_counts[k]=len(load_official(candidate[OFFICIAL_FILE])) if k=='oficial' else len(validate_upload(k,candidate[FILES[k]]))
+                row_counts[k]=len(load_official(candidate[OFFICIAL_FILE])) if k=='oficial' else (len(load_cip(candidate[CIP_FILE])) if k=='cip_historico' else len(validate_upload(k,candidate[FILES[k]])))
             if 'calificaciones' in changed or 'seguimiento' in changed:
                 observed=build_catalog(load_source('calificaciones',candidate[FILES['calificaciones']]),load_source('seguimiento',candidate[FILES['seguimiento']]))
                 existing=read_csv(candidate['minor_courses.csv']); additions=[]
