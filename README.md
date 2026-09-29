@@ -40,12 +40,14 @@ ADMIN → CONFIGURACIÓN permite cambiar semestre, electivas/vigencias y excepci
 
 La lectura queda en la sesión hasta pulsar Recargar datos. Los resultados se cachean durante 15 minutos por contenido; guardar invalida el caché. Los archivos personales nunca se sirven como recursos web estáticos.
 
+El snapshot privado usa además `current_enrollments.xls`, reemplazado al actualizar el semestre. Sus filas `Inscrita` se muestran como `CURSANDO` en la trayectoria del Minor; no se incorporan a las calificaciones ni alteran avance, egreso, eliminación o DIRAE. El padrón maestro vigente aporta identidad y condición universitaria; su ausencia no borra participaciones históricas.
+
 ## Límites explícitos
 
 - OIDC y Drive están implementados, pero requieren configuración externa y una prueba de integración con las cuentas UFRO.
 - Se detectan requisitos académicos; la aplicación no emite certificados oficiales. El cierre de actas y los requisitos de ingreso históricos no están plenamente acreditados por las fuentes.
 - Sin descarga de movilidad/postergación, sólo se aplican excepciones registradas y aprobadas.
-- No se asume equivalencia entre DIFEM y denominaciones posteriores de unidades. Confirmarla en catálogo antes de resolver los casos afectados.
+- Las inscripciones vigentes sólo extienden la oferta al semestre actual para códigos ya confirmados en el catálogo del Minor; no se extienden períodos futuros ni se confirman códigos nuevos automáticamente.
 - No se automatizan sistemas institucionales. Hay un protocolo para añadir posteriormente una integración autorizada.
 - Un único despliegue escritor. No editar simultáneamente el paquete desde Drive o desde otra aplicación. Hay control de versión y bloqueo entre sesiones del mismo proceso; Drive no aporta una transacción distribuida en esta implementación.
 

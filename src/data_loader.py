@@ -28,6 +28,10 @@ def load_source(kind, data):
     missing=set(mapping)-set(df.columns)
     if missing:raise ValueError('El archivo no contiene las columnas requeridas: '+', '.join(sorted(missing)))
     df=df.rename(columns=mapping).copy(); df['source_row']=df.index+header+2; df['source']=kind
+    if kind=='master':
+        optional={'Estado Académico':'estado_academico','Estado Alumno':'estado_alumno','Año':'master_year','Sem.':'master_term'}
+        for original,target in optional.items():
+            if original in df:df[target]=df[original].map(text)
     df['matricula_original']=df.matricula.map(text); df['matricula']=df.matricula.map(matricula)
     for c in ['nombre','carrera','nombre_asignatura','unidad_academica','estado_final','tipo']:
         if c in df:df[c]=df[c].map(text)
@@ -43,6 +47,27 @@ def load_source(kind, data):
         df['nota']=pd.to_numeric(df.nota.map(lambda x:text(x).replace(',','.')),errors='coerce')
         df['outcome']=df.estado_final.map(lambda x:{'APROBADA':'PASS','REPROBADA':'FAIL'}.get(norm(x),'UNKNOWN'))
     return df
+
+def load_current_enrollments(data,semester='2026-2'):
+    """Read the semester's registration roster as non-grade evidence only."""
+    try:
+        book=pd.ExcelFile(BytesIO(data))
+        d=pd.read_excel(book,sheet_name=book.sheet_names[0],dtype=object).dropna(how='all')
+    except Exception as exc:raise ValueError('No se pudo leer el archivo de inscripciones actuales.') from exc
+    aliases={'Unidad':'unidad_academica','Código':'codigo','Nombre Asignatura':'nombre_asignatura',
+        'Matrícula':'matricula','Nombre':'nombre','Estado Inscr.':'enrollment_status',
+        'Carrera/Programa':'carrera','Código.1':'codigo_carrera','E-Mail':'email'}
+    missing=set(aliases)-set(d.columns)
+    if missing:raise ValueError('El archivo de inscripciones actuales no contiene: '+', '.join(sorted(missing)))
+    d=d.rename(columns=aliases).copy();d['source_row']=d.index+2;d['source']='current_enrollments'
+    from .cleaning import text,code,canonical_code,matricula,norm
+    for field in ['unidad_academica','nombre_asignatura','nombre','enrollment_status','carrera','email','codigo_carrera']:
+        d[field]=d[field].map(text)
+    d['matricula_original']=d.matricula.map(text);d['matricula']=d.matricula.map(matricula)
+    d['codigo_original']=d.codigo.map(text);d['codigo']=d.codigo.map(code);d['canonical_course_code']=d.codigo.map(canonical_code)
+    d['semester']=semester;d['currently_enrolled']=d.enrollment_status.map(lambda x:norm(x)=='INSCRITA')
+    d['nota']=pd.NA;d['outcome']='';d['estado_final']=''
+    return d
 
 def load_cip(data):
     """The historic CIP sheet's Código is a career ID; Source.Name has course/term."""

@@ -108,3 +108,12 @@ La redacción de Emprendimiento sobre convalidación previa a la primera versió
 Se compara por matrícula + Minor + semestre de inscripción. Se informan coincidencias, diferencias de estado/egreso/códigos y cantidades, casos sólo nuevos y sólo antiguos. Los casos con el mismo estudiante pero distinta inscripción/Minor aparecen en los exclusivos, con candidatos nuevos para revisar. El conteo histórico incluye códigos registrados, no necesariamente aprobaciones válidas. No se interpreta esa diferencia automáticamente como error del sistema nuevo.
 
 Los 701 registros antiguos con “No inscrito” no son semestres malformados a corregir: se reportan como información. Ninguno se incorpora por tener notas compatibles.
+
+
+## Inscripciones actuales del semestre
+
+La fuente privada `current_enrollments.xls` se reemplaza en cada actualización semestral. Sólo el valor normalizado `Inscrita` produce una fila `CURSANDO`. Se vincula por matrícula + participación Minor + código. Se acepta una troncal obligatoria o una electiva previamente confirmada en el catálogo de ese Minor; un código nuevo o perteneciente a otro Minor queda en VALIDACIÓN. La inscripción actual puede respaldar la oferta de un código ya confirmado para el semestre cargado, pero nunca crea por sí sola una nueva pertenencia al Minor ni una vigencia futura.
+
+Las filas `CURSANDO` se anexan después del cálculo académico y no tienen nota, estado final, ni `counted_for_completion`. No modifican `total_completed`, ratios aprobados, egreso, eliminación por troncal ni la exportación DIRAE. En Buscar Estudiante se muestran separadas del avance aprobado dentro de “HISTORIAL DE ASIGNATURAS DEL MINOR”, junto con aprobadas, reconocidas previas, reprobadas y aprobadas adicionales. La tabla visible oculta los indicadores técnicos de conteo.
+
+El padrón maestro más reciente es prioritario para nombre, carrera y condición universitaria actual. La falta de un registro en ese padrón genera un hallazgo cuando corresponde al ingreso del semestre actual; nunca elimina una participación histórica ni cambia su estado académico.

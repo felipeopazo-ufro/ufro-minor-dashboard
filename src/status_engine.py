@@ -53,7 +53,7 @@ def calculate_minor_status(enrollment,grades,courses,exceptions,current_semester
         signatures={(str(r.get('nota')),r.get('outcome')) for r in attempts}
         ambiguous=len(signatures)>1
         r=next((a for a in attempts if a.get('source')=='calificaciones'),attempts[0]);course=lookup(cat,m,c,s); core=c in TRONCALES[m]
-        h={k:r.get(k,'') for k in ['codigo','nombre_asignatura','semester','nota','estado_final','source_row','source_file','unidad_academica','source']}
+        h={k:r.get(k,'') for k in ['codigo','nombre_asignatura','semester','nota','estado_final','outcome','source_row','source_file','unidad_academica','source']}
         h['canonical_course_code']=c
         observed=next((x for x in cat.get((m,c),[]) if x['codigo']==r.get('codigo') and
             ordinal(x['semestre_desde'])<=s<=ordinal(x['semestre_hasta']) and x.get('unidad_academica')),None)

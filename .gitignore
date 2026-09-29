@@ -10,6 +10,10 @@ reports/
 private/
 *.xlsx
 *.xls
+current_enrollments.*
+*Excel_Master*
+*Master-*.xlsx
+Inscritos*Electivos*
 *.zip
 *.parquet
 *.sqlite*

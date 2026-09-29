@@ -245,3 +245,13 @@ Columnas originales: Matrícula, Nombre, Código, Nro.Plan, Carrera, Estado Acad
 Campos nuevos en participaciones: calculated_status, calculated_status_reason, calculated_requires_review, calculated_graduation_semester (preservan evidencia previa); status_source (CÁLCULO/OFICIAL UFRO); official_linked; official_total, official_cores, official_electives (-1 si no vinculados); fechas official_enrollment_date, official_completion_date, official_elimination_date, official_resignation_date, official_certificate_date; official_student_state; dirae_ready.
 
 Las fechas oficiales están en ISO YYYY-MM-DD o vacías. No equivalen a semestre académico. El catálogo/excepciones y los originales siguen separados. `semestres_extension` es opcional para archivos antiguos de excepciones; obligatorio y positivo al registrar Prórroga extraordinaria.
+
+
+## Fuentes actuales 2026-2
+
+- `current_enrollments.xls` (hoja de electivos): Unidad, Código, Nombre Asignatura, Matrícula, Nombre, Estado Inscr., Código de carrera, Carrera/Programa y E-Mail. Matrícula y códigos se leen como texto. Sólo el estado `Inscrita` se muestra como `CURSANDO`; los demás estados quedan como hallazgos de calidad. No hay calificación ni resultado PASS/FAIL en esta fuente.
+- La fuente se reemplaza cada semestre usando el nombre interno estable `current_enrollments.xls`. El semestre procede de `settings.json`; la carga valida estructura y se procesa separada de las calificaciones.
+- La asignatura actual se vincula por matrícula, participación en el Minor y código canónico. Sólo se muestra si es troncal obligatoria o código ya confirmado para ese Minor. Códigos desconocidos y códigos de otro Minor generan hallazgos, sin otorgar elegibilidad.
+- El catálogo puede registrar oferta para el semestre cargado únicamente si el código ya estaba confirmado para la participación y la inscripción respalda oferta en ese semestre. No se extrapola después del semestre vigente.
+- El padrón maestro actual `09-Excel_Master-29.09.2026.xlsx` aporta nombre, carrera y condición universitaria vigente (10.224 matrículas únicas). Una matrícula que no aparece en el padrón conserva su participación histórica y se informa para validación.
+- Buscar Estudiante muestra en una sola tabla la trayectoria relevante: aprobadas, reconocidas previamente, reprobadas, adicionales y actualmente cursando. `counted_for_completion` sigue siendo un dato interno para el motor y DIRAE.

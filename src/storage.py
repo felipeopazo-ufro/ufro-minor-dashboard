@@ -6,6 +6,7 @@ import hashlib,json,os,threading
 LOCK=threading.RLock()
 FILES={'inscritos':'inscritos.xlsx','calificaciones':'calificaciones.xlsx','master':'master.xlsx','seguimiento':'seguimiento.xlsx'}
 CIP_FILE='cip_historico.xlsx'
+CURRENT_ENROLLMENTS_FILE='current_enrollments.xls'
 
 def pack(files):
     b=BytesIO()
