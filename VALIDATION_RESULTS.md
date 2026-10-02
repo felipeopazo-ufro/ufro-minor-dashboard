@@ -1,4 +1,16 @@
-# Validación de la versión 2.0
+# Validación de fuente actual de inscripciones 2026-2
+
+Actualización de la candidata `academic-engine-final`, PR #1. Paquete privado con el máster del 29-09-2026, inscripciones actuales en clave estable `current_enrollments.xls` y evidencia de oferta 2026-2 sólo para códigos previamente confirmados.
+
+- Suite completa: 122 pruebas aprobadas, incluidas las 105 preexistentes y 17 pruebas nuevas de inscripciones actuales e historial visible.
+- Cruce de ingresos 2026-2: 79 participaciones (Inglés 65, Emprendimiento 9, Interculturales 5); 75 con al menos una asignatura confirmada de su Minor (62, 8, 5); 4 sin asignatura propia detectada.
+- Máster vigente: 78 de las 79 participaciones. Una ausencia genera hallazgo de validación y conserva la participación.
+- Fuente actual: 3.450 filas, todas con `Inscrita`; sin matrículas vacías ni duplicados matrícula/código en el archivo recibido.
+- Resultados históricos de control: Emprendimiento 170 egresados (4 con probable excepcionalidad); Inglés 365 egresados (15 con probable excepcionalidad, 18 en revisión).
+- Las filas `CURSANDO` se anexan luego del cálculo, sin nota ni resultado académico; no cambian progreso, egreso, eliminación ni DIRAE.
+- AppTest recorre las ocho pantallas con el paquete privado local, incluida búsqueda y tabla unificada del historial; no se modifican autenticación, Drive ni navegación.
+
+## Validación anterior de la versión 2.0
 
 Semestre de cálculo: 2026-2. Fuentes originales más Avances Minor Inglés(1).xls. El registro oficial tiene 653 estudiantes y 351 completados.
 

@@ -5,6 +5,8 @@ from pathlib import Path
 import hashlib,json,os,threading
 LOCK=threading.RLock()
 FILES={'inscritos':'inscritos.xlsx','calificaciones':'calificaciones.xlsx','master':'master.xlsx','seguimiento':'seguimiento.xlsx'}
+CIP_FILE='cip_historico.xlsx'
+CURRENT_ENROLLMENTS_FILE='current_enrollments.xls'
 
 def pack(files):
     b=BytesIO()
@@ -18,6 +20,8 @@ def unpack(data):
 def digest(data):return hashlib.sha256(data).hexdigest()
 class LocalStorage:
     def __init__(self,path):self.path=Path(path)
+    def version(self):
+        return digest(self.path.read_bytes()) if self.path.exists() else digest(b'')
     def read(self):
         b=self.path.read_bytes();return unpack(b),digest(b)
     def write(self,files,expected):

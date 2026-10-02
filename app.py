@@ -2,6 +2,12 @@ from pathlib import Path
 import streamlit as st
 from src.auth import authenticate,PAGES
 from src.storage import make_storage
+from src.runtime_cache import (
+    CALCULATION_CACHE_SCHEMA,
+    clear_snapshot_calculation_cache,
+    load_snapshot_calculation,
+    snapshot_cache_key,
+)
 from src import ui
 st.set_page_config(page_title='Minor UFRO',page_icon='🎓',layout='wide')
 st.title('Sistema de Seguimiento de Programas Minor')
@@ -13,11 +19,37 @@ st.sidebar.caption(f'{actor} · {role}')
 page=st.sidebar.radio('Navegación',PAGES[role])
 try:
     storage=make_storage(settings)
-    if st.sidebar.button('Recargar datos'):st.session_state.pop('snapshot',None)
-    if 'snapshot' not in st.session_state:
-        with st.spinner('Cargando fuentes autorizadas…'):st.session_state.snapshot=storage.read()
-    files,version=st.session_state.snapshot
-    with st.spinner('Calculando trayectorias…'):r,sources=ui.compute(files)
+    if st.sidebar.button('Recargar datos'):
+        clear_snapshot_calculation_cache()
+        st.session_state.pop('_loaded_snapshot_cache_key',None)
+        st.rerun()
+    storage_config=settings.get('storage',{})
+    mode=storage_config.get('mode','GOOGLE_DRIVE')
+    snapshot_file_id=storage_config.get('snapshot_file_id','')
+    local_path=storage_config.get('local_path','data/private/minor_snapshot.zip') if mode=='LOCAL' else ''
+    snapshot_version=storage.version()
+    cache_key=snapshot_cache_key(mode,snapshot_file_id,snapshot_version,local_path)
+    is_new_for_session=st.session_state.get('_loaded_snapshot_cache_key')!=cache_key
+    if is_new_for_session:
+        with st.spinner('Cargando fuentes y calculando trayectorias…'):
+            files,version,r,sources=load_snapshot_calculation(
+                mode,
+                snapshot_file_id,
+                snapshot_version,
+                local_path,
+                CALCULATION_CACHE_SCHEMA,
+                _google_service_account=settings.get('google_service_account'),
+            )
+        st.session_state['_loaded_snapshot_cache_key']=cache_key
+    else:
+        files,version,r,sources=load_snapshot_calculation(
+            mode,
+            snapshot_file_id,
+            snapshot_version,
+            local_path,
+            CALCULATION_CACHE_SCHEMA,
+            _google_service_account=settings.get('google_service_account'),
+        )
     if 'avance_oficial_ingles.xlsx' not in files:st.warning('No se ha cargado el avance oficial de Inglés. ADMIN puede incorporarlo en ACTUALIZAR DATOS.')
     st.sidebar.caption('Versión 2.0 · avance oficial integrado')
     st.sidebar.caption(f'Semestre actual: {r["current"]}')

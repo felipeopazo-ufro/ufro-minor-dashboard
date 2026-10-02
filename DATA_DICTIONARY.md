@@ -86,7 +86,7 @@ Inspección completa de todas las hojas. Se omiten ejemplos personales; los orig
 
 | Campo original | Tipo leído | Vacíos | Valores distintos |
 |---|---|---:|---:|
-| 15292684723 | object | 0 | 41 |
+| [matrícula de ejemplo redactada] | object | 0 | 41 |
 | Alerta naranja | object | 0 | 1 |
 
 ## Inscritos Minor 2015-2026(1).xlsx
@@ -103,11 +103,11 @@ Inspección completa de todas las hojas. Se omiten ejemplos personales; los orig
 | Cohorte | int64 | 0 | 16 |
 | Inscripción histórico | object | 0 | 24 |
 
-## Calificaciones 2015-1 a 2026-1(1).xlsx
+## Calificaciones 2013-1 a 2026-1.xlsx
 
 ### Calificaciones Minor
 
-28,588 filas de datos; 17 columnas.
+30,481 filas de datos; 17 columnas.
 
 | Campo original | Tipo leído | Vacíos | Valores distintos |
 |---|---|---:|---:|
@@ -117,7 +117,7 @@ Inspección completa de todas las hojas. Se omiten ejemplos personales; los orig
 | Unidad | object | 0 | 6 |
 | Código | object | 0 | 82 |
 | Nombre Asignatura | object | 0 | 73 |
-| Matrícula | object | 0 | 11343 |
+| Matrícula | object | 0 | 11895 |
 | Nombre | object | 0 | 11096 |
 | Nota | float64 | 0 | 62 |
 | Estado Final | object | 0 | 2 |
@@ -176,7 +176,7 @@ Inspección completa de todas las hojas. Se omiten ejemplos personales; los orig
 ## Interpretación de hojas
 
 - Inscritos / Hoja1: fuente autoritativa de participación. La columna E es Inscripción histórico, formato YYYY/1 o YYYY/2.
-- Calificaciones Minor: 28.588 filas; incluye 11.201 personas, muchas sin inscripción. Se filtra por persona inscrita al calcular participaciones. Minor y tipo documentan oferta histórica; no prueban pertenencia.
+- Calificaciones Minor: 30.481 filas; incluye 11.895 matrículas, muchas sin inscripción. El histórico CIP complementario aporta 207 filas de asignaturas. Se filtra por persona inscrita al calcular participaciones. Minor y tipo documentan oferta histórica; no prueban pertenencia.
 - Padrón / Sheet1: fila 1 es título, fila 2 encabezados. 10.422 registros. Sólo se cargan nombre/carrera e identificador para el modelo; teléfonos, correos y nivel actual no aparecen en las vistas.
 - Base completa Minors: 4.376 filas, notas e inscripción/estado anteriores. 701 filas dicen No inscrito.
 - Placement Test: 298 filas. Resultados de entrada/salida y estados; inspeccionada, no usada para imponer requisito de salida inexistente.
@@ -245,3 +245,13 @@ Columnas originales: Matrícula, Nombre, Código, Nro.Plan, Carrera, Estado Acad
 Campos nuevos en participaciones: calculated_status, calculated_status_reason, calculated_requires_review, calculated_graduation_semester (preservan evidencia previa); status_source (CÁLCULO/OFICIAL UFRO); official_linked; official_total, official_cores, official_electives (-1 si no vinculados); fechas official_enrollment_date, official_completion_date, official_elimination_date, official_resignation_date, official_certificate_date; official_student_state; dirae_ready.
 
 Las fechas oficiales están en ISO YYYY-MM-DD o vacías. No equivalen a semestre académico. El catálogo/excepciones y los originales siguen separados. `semestres_extension` es opcional para archivos antiguos de excepciones; obligatorio y positivo al registrar Prórroga extraordinaria.
+
+
+## Fuentes actuales 2026-2
+
+- `current_enrollments.xls` (hoja de electivos): Unidad, Código, Nombre Asignatura, Matrícula, Nombre, Estado Inscr., Código de carrera, Carrera/Programa y E-Mail. Matrícula y códigos se leen como texto. Sólo el estado `Inscrita` se muestra como `CURSANDO`; los demás estados quedan como hallazgos de calidad. No hay calificación ni resultado PASS/FAIL en esta fuente.
+- La fuente se reemplaza cada semestre usando el nombre interno estable `current_enrollments.xls`. El semestre procede de `settings.json`; la carga valida estructura y se procesa separada de las calificaciones.
+- La asignatura actual se vincula por matrícula, participación en el Minor y código canónico. Sólo se muestra si es troncal obligatoria o código ya confirmado para ese Minor. Códigos desconocidos y códigos de otro Minor generan hallazgos, sin otorgar elegibilidad.
+- El catálogo puede registrar oferta para el semestre cargado únicamente si el código ya estaba confirmado para la participación y la inscripción respalda oferta en ese semestre. No se extrapola después del semestre vigente.
+- El padrón maestro actual `09-Excel_Master-29.09.2026.xlsx` aporta nombre, carrera y condición universitaria vigente (10.224 matrículas únicas). Una matrícula que no aparece en el padrón conserva su participación histórica y se informa para validación.
+- Buscar Estudiante muestra en una sola tabla la trayectoria relevante: aprobadas, reconocidas previamente, reprobadas, adicionales y actualmente cursando. `counted_for_completion` sigue siendo un dato interno para el motor y DIRAE.

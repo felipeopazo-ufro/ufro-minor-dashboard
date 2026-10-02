@@ -47,7 +47,7 @@ Dos troncales distintas y tres electivas distintas por código. Troncales:
 
 El ordinal es año × 2 + semestre − 1. Plazo ordinario: ordinal de inscripción + 5. El semestre de inscripción cuenta como primero. Una inscripción 2024-2 vence en 2027-1. Estar en el sexto semestre no elimina: CURSANDO con alerta CRÍTICA. El semestre siguiente se elimina por plazo si no se completó.
 
-Electivas: desde cuatro semestres anteriores a la inscripción hasta el límite. El borde de cuatro semestres se incluye; cinco se excluye. Troncales previas no se reconocen y una reprobación previa no se interpreta como intento dentro de esa participación. Se conserva en historial. No se ha configurado ninguna excepción a esta regla.
+Troncales y electivas aprobadas: desde cuatro semestres anteriores a la inscripción hasta el límite. El borde de cuatro semestres se incluye; cinco se excluye. Una reprobación troncal previa no se interpreta como intento dentro de esa participación. Los códigos CIP040, CIP044, CIP101, CIP105, CIP140, CIP147, CIP159, CIP163, CIP165, CIP171, CIP183 y CIP185 corresponden a DFI con el mismo número. Se conservan código original y canónico; cada asignatura canónica cuenta una vez. Los pares con nombres distintos quedan bloqueados y reportados para revisión.
 
 ## Intentos, notas e incertidumbre
 
@@ -69,11 +69,11 @@ Primera aprobación válida de cada código; electivas ordenadas por semestre y 
 
 920 filas iniciales de catálogo, construidas desde ambos registros académicos y las troncales normativas. Las electivas tienen vigencia del semestre observado, sin extender intervalos a semestres no documentados. Una clasificación contradictoria queda no confirmada. Una asignatura puede tributar a más de un Minor si existe evidencia en ambos.
 
-La unidad que imparte está disponible, pero se registra como Coordinación de Formación General e Idiomas en buena parte del historial. No se equipara automáticamente a DIFEM. Para Ingeniería Comercial y Contador Público y Auditor:
+Para Ingeniería Comercial y Contador Público y Auditor, el reconocimiento de electivas se decide mediante la unidad consignada en las fuentes y la aclaración institucional de que la oferta de Formación General satisface la restricción:
 
-- unidad explícitamente DIFEM → SI;
+- DIFEM o Coordinación de Formación General e Idiomas → SI;
 - unidad departamental distinta de DIFEM → NO;
-- equivalencia institucional no acreditada → REVISAR.
+- unidad no identificable o mezcla incompatible → REVISAR.
 
 IAE145 sigue siendo troncal válida. Los campos `valida_ing_comercial` y `valida_contador_auditor` pueden confirmarse en CONFIGURACIÓN con respaldo. Un código desconocido o clasificación dudosa en el período relevante obliga a revisión, incluso si hay otras asignaturas suficientes; es una política conservadora de esta versión.
 
@@ -108,3 +108,12 @@ La redacción de Emprendimiento sobre convalidación previa a la primera versió
 Se compara por matrícula + Minor + semestre de inscripción. Se informan coincidencias, diferencias de estado/egreso/códigos y cantidades, casos sólo nuevos y sólo antiguos. Los casos con el mismo estudiante pero distinta inscripción/Minor aparecen en los exclusivos, con candidatos nuevos para revisar. El conteo histórico incluye códigos registrados, no necesariamente aprobaciones válidas. No se interpreta esa diferencia automáticamente como error del sistema nuevo.
 
 Los 701 registros antiguos con “No inscrito” no son semestres malformados a corregir: se reportan como información. Ninguno se incorpora por tener notas compatibles.
+
+
+## Inscripciones actuales del semestre
+
+La fuente privada `current_enrollments.xls` se reemplaza en cada actualización semestral. Sólo el valor normalizado `Inscrita` produce una fila `CURSANDO`. Se vincula por matrícula + participación Minor + código. Se acepta una troncal obligatoria o una electiva previamente confirmada en el catálogo de ese Minor; un código nuevo o perteneciente a otro Minor queda en VALIDACIÓN. La inscripción actual puede respaldar la oferta de un código ya confirmado para el semestre cargado, pero nunca crea por sí sola una nueva pertenencia al Minor ni una vigencia futura.
+
+Las filas `CURSANDO` se anexan después del cálculo académico y no tienen nota, estado final, ni `counted_for_completion`. No modifican `total_completed`, ratios aprobados, egreso, eliminación por troncal ni la exportación DIRAE. En Buscar Estudiante se muestran separadas del avance aprobado dentro de “HISTORIAL DE ASIGNATURAS DEL MINOR”, junto con aprobadas, reconocidas previas, reprobadas y aprobadas adicionales. La tabla visible oculta los indicadores técnicos de conteo.
+
+El padrón maestro más reciente es prioritario para nombre, carrera y condición universitaria actual. La falta de un registro en ese padrón genera un hallazgo cuando corresponde al ingreso del semestre actual; nunca elimina una participación histórica ni cambia su estado académico.

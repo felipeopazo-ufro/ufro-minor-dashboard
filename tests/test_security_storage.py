@@ -20,9 +20,9 @@ def test_atomic_storage(tmp_path):
  assert s.read()[0]['a']==b'2' and len(list((tmp_path/'backups').glob('*.zip')))==1
 
 def test_export_roundtrip():
- b=excel_bytes({'DIRAE':pd.DataFrame({'Matrícula':['00123456789'],'Nota':[5.6],'Nombre':['=HYPERLINK("evil")']})})
+ b=excel_bytes({'DIRAE':pd.DataFrame({'Matrícula':['TEST-MATRICULA'],'Nota':[5.6],'Nombre':['=HYPERLINK("evil")']})})
  w=load_workbook(BytesIO(b));s=w.active
- assert s['A2'].value=='00123456789' and s['A2'].data_type=='s';assert s['B2'].value==5.6;assert s['C2'].data_type=='s';assert s.freeze_panes=='A2' and s.auto_filter.ref=='A1:C2'
+ assert s['A2'].value=='TEST-MATRICULA' and s['A2'].data_type=='s';assert s['B2'].value==5.6;assert s['C2'].data_type=='s';assert s.freeze_panes=='A2' and s.auto_filter.ref=='A1:C2'
 
 def test_missing_headers_rejected():
  from src.data_loader import validate_upload

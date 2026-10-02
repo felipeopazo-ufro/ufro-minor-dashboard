@@ -3,27 +3,34 @@ import json
 import pandas as pd
 import streamlit as st
 from .auth import require_admin
-from .data_loader import load_source,validate_upload
+from .data_loader import load_source,load_cip,load_current_enrollments,validate_upload
 from .pipeline import process
 from .catalog import build_catalog
 from .semesters import ordinal
 from .official import load_official,apply_official,OFFICIAL_FILE
 from .configuration import read_csv,validate_courses,validate_exceptions
-from .storage import FILES
+from .storage import FILES,CIP_FILE
+from .storage import CURRENT_ENROLLMENTS_FILE
+from .current_courses import add_current_offer_rows,attach_current_courses,student_history
 from .excel import excel_bytes
 from .dirae import dirae_tables
 from .reconciliation import reconcile
 from .cleaning import norm
 from .semesters import normalize
 
-@st.cache_data(show_spinner=False,max_entries=4,ttl=900)
 def compute(files):
     sources={k:load_source(k,files[v]) for k,v in FILES.items()}
+    if CIP_FILE in files:sources['cip_historico']=load_cip(files[CIP_FILE])
     settings=json.loads(files['settings.json'])
     courses=validate_courses(files['minor_courses.csv'])
     exceptions=read_csv(files['exceptions.csv']).to_dict('records')
     result=process(sources,settings['current_semester'],courses,exceptions)
-    result=apply_official(result,load_official(files[OFFICIAL_FILE]) if OFFICIAL_FILE in files else None)
+    overrides=read_csv(files['official_reconciliation_overrides.csv']).to_dict('records') if 'official_reconciliation_overrides.csv' in files else []
+    result=apply_official(result,load_official(files[OFFICIAL_FILE]) if OFFICIAL_FILE in files else None,overrides)
+    if CURRENT_ENROLLMENTS_FILE in files:
+        registrations=load_current_enrollments(files[CURRENT_ENROLLMENTS_FILE],settings['current_semester'])
+        result['courses']=add_current_offer_rows(result['courses'],registrations,result['enrollments'],settings['current_semester'])
+        result=attach_current_courses(result,registrations,settings['current_semester'])
     result['exceptions']=pd.DataFrame(exceptions)
     return result,sources
 
@@ -40,6 +47,9 @@ def filters(df,key):
     states=c2.multiselect('Estado',sorted(out.status.unique()),key=key+'status')
     if years:out=out[out.semester_enrolled.str[:4].isin(years)]
     if states:out=out[out.status.isin(states)]
+    if key=='pan' and 'probable_exceptionality' in out:
+        exceptionality=c2.selectbox('Probable excepcionalidad', ['Todas','Sí','No'], key=key+'probable')
+        if exceptionality!='Todas':out=out[out.probable_exceptionality== (exceptionality=='Sí')]
     return out
 
 def panorama(r,role):
@@ -62,21 +72,27 @@ def search(r):
     choices={x['enrollment_id']:f"{x['nombre']} · {x['matricula']} · {x['minor']} · {x['semester_enrolled']}" for x in found.to_dict('records')}
     eid=st.selectbox('Participación Minor',list(choices),format_func=choices.get);e=found[found.enrollment_id==eid].iloc[0]
     st.subheader(e.nombre);st.write(f'{e.carrera} · {e.minor}');st.info(f'{e.status} — {e.status_reason}')
+    master_state=' · '.join(str(e.get(k,'')) for k in ['estado_academico','estado_alumno'] if str(e.get(k,'')).strip())
+    st.caption('Padrón UFRO actual: '+(master_state or 'Sin registro vigente; revisar VALIDACIÓN.'))
     if e.get('official_linked',False):
         st.write(f'Avance oficial UFRO: {e.official_cores}/2 troncales · {e.official_electives}/3 electivas · {e.official_total}/5 total')
         st.caption(f'Fuente del estado: {e.status_source}. Fecha oficial de plan completo: {e.official_completion_date or "No informada"}. Estado del alumno: {e.official_student_state}.')
-    st.caption('Respaldo calculado a partir de calificaciones:')
+    st.caption('Avance aprobado calculado a partir de calificaciones:')
     a,b,c=st.columns(3);a.metric('Troncales',f'{int(e.troncales_completed)}/2');b.metric('Electivas',f'{int(e.electives_completed)}/3');c.metric('Total',f'{int(e.total_completed)}/5')
+    current_count=int(e.get('current_minor_courses_count',0));st.write(f'**ACTUALMENTE CURSANDO** · {current_count} asignatura(s) del Minor')
+    st.caption(f"{int(e.total_completed)}/5 aprobadas · {current_count} cursando · {max(0,5-int(e.total_completed))} pendientes")
     st.write(f'Inscripción: {e.semester_enrolled} · Límite calculado: {e.deadline_semester} · Egreso calculado: {e.graduation_semester or "No determinado"} · Excepciones: {int(e.exception_count)}')
+    st.write(f'Límite ordinario: {e.ordinary_deadline_semester} · Completitud académica: {e.completion_semester or "No determinada"} · Semestres sobre el plazo: {int(e.semesters_over_deadline)} · Probable excepcionalidad: {"Sí" if e.probable_exceptionality else "No"} · Tipo: {e.exception_type or "Ninguno"}')
     st.write(f'Pendientes según calificaciones: troncales: {e.pending_troncales or "Ninguna"}. Electivas pendientes: {int(e.pending_electives)}.')
     ex=r.get('exceptions',pd.DataFrame())
     if not ex.empty:
         ex=ex[(ex.matricula==e.matricula)&(ex.minor==e.minor)]
         if not ex.empty:st.write('Excepciones registradas');st.dataframe(ex,hide_index=True,width='stretch')
     h=r['history'];h=h[h.enrollment_id==eid].copy()
-    if h.empty:st.info('Sin calificaciones registradas.');return
-    h['Cuenta para Minor']=h.counted_for_completion.map({True:'Sí',False:'No'})
-    st.dataframe(h[['codigo','nombre_asignatura','course_type','semester','nota','estado_final','Cuenta para Minor','eligibility_reason','source_row']],hide_index=True,width='stretch')
+    st.subheader('HISTORIAL DE ASIGNATURAS DEL MINOR')
+    readable=student_history(r['history'],eid)
+    if readable.empty:st.info('Sin asignaturas académicas del Minor ni inscripciones actuales registradas.')
+    else:st.dataframe(readable,hide_index=True,width='stretch')
 
 def dirae(r):
     d=filters(r['enrollments'],'dirae');d=d[d.status=='EGRESADO']
@@ -118,7 +134,13 @@ def commit_candidate(storage,files,version,candidate,actor,role,changes):
     audit=json.loads(candidate.get('audit.json',b'[]'))
     audit.append({'timestamp':datetime.now(timezone.utc).isoformat(),'actor':actor,'changes':changes,'previous_version':version})
     candidate['audit.json']=json.dumps(audit,ensure_ascii=False).encode()
-    storage.write(candidate,version);st.session_state.pop('snapshot',None);st.session_state.pop('candidate',None);compute.clear();st.success('Actualización guardada.');st.rerun()
+    storage.write(candidate,version)
+    from .runtime_cache import clear_snapshot_calculation_cache
+    clear_snapshot_calculation_cache()
+    st.session_state.pop('snapshot',None)
+    st.session_state.pop('_loaded_snapshot_cache_key',None)
+    st.session_state.pop('candidate',None)
+    st.success('Actualización guardada.');st.rerun()
 
 def update(r,files,version,storage,actor,role):
     require_admin(role)
@@ -128,13 +150,20 @@ def update(r,files,version,storage,actor,role):
         up=st.file_uploader(title,type=['xlsx'],key=k)
         if up:
             data=up.getvalue();candidate[FILES[k]]=data;changed.append(k)
+    cip_up=st.file_uploader('Calificaciones históricas CIP (.xlsx)',type=['xlsx'],key='cip_historico_upload')
+    if cip_up:candidate[CIP_FILE]=cip_up.getvalue();changed.append('cip_historico')
     official_up=st.file_uploader('Avance oficial Minor en Inglés (.xls o .xlsx)',type=['xls','xlsx'],key='official_upload')
     if official_up:candidate[OFFICIAL_FILE]=official_up.getvalue();changed.append('oficial')
+    current_up=st.file_uploader('Inscripciones actuales del semestre (.xls o .xlsx)',type=['xls','xlsx'],key='current_enrollments_upload')
+    if current_up:candidate[CURRENT_ENROLLMENTS_FILE]=current_up.getvalue();changed.append('current_enrollments')
     if st.button('Validar y procesar',disabled=not changed):
         try:
             row_counts={}
             for k in changed:
-                row_counts[k]=len(load_official(candidate[OFFICIAL_FILE])) if k=='oficial' else len(validate_upload(k,candidate[FILES[k]]))
+                if k=='oficial':row_counts[k]=len(load_official(candidate[OFFICIAL_FILE]))
+                elif k=='cip_historico':row_counts[k]=len(load_cip(candidate[CIP_FILE]))
+                elif k=='current_enrollments':row_counts[k]=len(load_current_enrollments(candidate[CURRENT_ENROLLMENTS_FILE],json.loads(candidate['settings.json'])['current_semester']))
+                else:row_counts[k]=len(validate_upload(k,candidate[FILES[k]]))
             if 'calificaciones' in changed or 'seguimiento' in changed:
                 observed=build_catalog(load_source('calificaciones',candidate[FILES['calificaciones']]),load_source('seguimiento',candidate[FILES['seguimiento']]))
                 existing=read_csv(candidate['minor_courses.csv']); additions=[]
@@ -146,6 +175,24 @@ def update(r,files,version,storage,actor,role):
                 row_counts['Vigencias nuevas del catálogo']=len(additions)
             st.write({'Filas validadas':row_counts})
             new,_=compute(candidate)
+            if 'current_enrollments' in changed:
+                current=new.get('current_enrollments',pd.DataFrame())
+                matched=new['history'][new['history'].get('currently_enrolled',pd.Series(dtype=bool))==True] if not new['history'].empty else pd.DataFrame()
+                cq=new['quality'][new['quality'].fuente=='current_enrollments']
+                code_issues=cq[cq.tipo.isin(['Código actual no reconocido para Minor','Asignatura actual asociada a otro Minor'])]
+                unlinked=cq[cq.tipo=='Electivo actual sin participación en Minor']
+                st.write({'Matrículas actuales del Minor':int(matched.matricula.nunique()) if not matched.empty else 0,
+                    'Códigos no reconocidos/ajenos al Minor':int(len(code_issues)),
+                    'Electivos actuales sin participación Minor':int(len(unlinked)),
+                    'Participaciones nuevas ausentes del padrón actual':int(new['quality'].tipo.eq('Ingreso actual ausente del máster').sum()),
+                    'Inscripciones con estado distinto de Inscrita':int((~current.currently_enrolled).sum()) if not current.empty else 0})
+                if not code_issues.empty:
+                    st.caption('Códigos actuales no confirmados para la participación o asignados a otro Minor')
+                    st.dataframe(code_issues[['matricula','tipo','detalle','fila_origen']],hide_index=True,width='stretch')
+                if not unlinked.empty:
+                    st.caption('Matrículas actuales sin participación Minor')
+                    st.dataframe(unlinked[['matricula','detalle','fila_origen']],hide_index=True,width='stretch')
+                candidate['minor_courses.csv']=new['courses'].fillna('').to_csv(index=False).encode()
             # Existing valid participation cannot silently disappear without explicit review below.
             old_ids=set(r['enrollments'].enrollment_id);new_ids=set(new['enrollments'].enrollment_id)
             st.session_state['candidate']=(candidate,version,changed,len(new_ids-old_ids),len(old_ids-new_ids),new['enrollments'].status.value_counts().to_dict())

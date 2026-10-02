@@ -1,10 +1,11 @@
 import pandas as pd
-from .cleaning import norm
-from .catalog import build_catalog,index_catalog
+from .cleaning import norm,names_compatible
+from .catalog import build_catalog,index_catalog,equivalence_conflicts
 from .status_engine import calculate_minor_status
 
-def process(sources,current='2026-2',courses=None,exceptions=None):
-    en=sources['inscritos'];gr=sources['calificaciones'];old=sources['seguimiento'];master=sources['master'];issues=[]
+def process(sources,current='2026-2',courses=None,exceptions=None,blocked_equivalences=None):
+    en=sources['inscritos'];old=sources['seguimiento'];master=sources['master'];issues=[]
+    gr=pd.concat([sources['calificaciones'],sources['cip_historico']],ignore_index=True) if 'cip_historico' in sources else sources['calificaciones']
     def issue(level,kind,mat='',detail='',source='',row=''):
         issues.append(dict(nivel=level,tipo=kind,matricula=mat,detalle=str(detail),fuente=source,fila_origen=row))
     for kind,d in sources.items():
@@ -18,8 +19,11 @@ def process(sources,current='2026-2',courses=None,exceptions=None):
             for r in d[d.nota.isna()|~d.nota.between(1,7)|(d.outcome=='UNKNOWN')].to_dict('records'):issue('ERROR','Nota/estado inválido',r['matricula'],r['nota_original'],kind,r['source_row'])
         cmp=[c for c in d if c not in ['source_row','source','matricula_original']]
         for r in d[d.duplicated(cmp)].to_dict('records'):issue('INFORMACIÓN','Duplicado técnico',r['matricula'],'Conservado en fuente; no duplica requisitos',kind,r['source_row'])
-    if courses is None:courses=build_catalog(gr,old)
-    cat=index_catalog(courses)
+    if courses is None:courses=build_catalog(sources['calificaciones'],old)
+    blocked,conflicts=equivalence_conflicts(gr,old)
+    for m,codes in (blocked_equivalences or {}).items():blocked.setdefault(m,set()).update(codes)
+    cat=index_catalog(courses,blocked)
+    for m,c,later,left,right in conflicts:issue('ERROR','Equivalencia histórica ambigua','',f'{m}: {c} / {later}: {left} / {right}')
     banks={k:{mat:g for mat,g in d.groupby('matricula')} for k,d in sources.items()}
     grades={mat:g.to_dict('records') for mat,g in gr.groupby('matricula')}
     enrollments=[];histories=[]
@@ -27,6 +31,13 @@ def process(sources,current='2026-2',courses=None,exceptions=None):
     repeated=set(tuple(x) for x in exact.loc[exact.duplicated(['matricula','minor'],keep=False),['matricula','minor']].values)
     for r in exact.to_dict('records'):
         mat=r['matricula'];review=[];e={k:r[k] for k in ['matricula','nombre','minor','semester_enrolled']};e['enrollment_id']='|'.join([mat,r['minor'],r['semester_enrolled']]); e['carrera']=''
+        master_row=banks['master'].get(mat)
+        if master_row is not None:
+            latest=master_row.iloc[-1]
+            e['estado_academico']=latest.get('estado_academico','')
+            e['estado_alumno']=latest.get('estado_alumno','')
+        else:
+            e['estado_academico']='';e['estado_alumno']=''
         if (mat,r['minor']) in repeated:review.append('Reinscripción en el mismo Minor: confirmar continuidad/eliminación previa')
         for field in ['nombre','carrera']:
             candidates=[]
@@ -37,18 +48,26 @@ def process(sources,current='2026-2',courses=None,exceptions=None):
                 candidates.extend((x,k) for x in d[field].unique() if x)
             if candidates:e[field]=candidates[0][0];e[field+'_fuente']=candidates[0][1]
             variants={norm(v) for v,k in candidates}
-            if len(variants)>1:
+            conflict=not names_compatible([v for v,k in candidates]) if field=='nombre' else len(variants)>1
+            if conflict:
                 issue('ADVERTENCIA','Conflicto '+field,mat,' / '.join(sorted(set(v for v,k in candidates))))
                 if field=='nombre':review.append('Nombres incompatibles entre fuentes')
                 if field=='carrera' and 'Emprendimiento' in e['minor']:
                     restricted={('INGENIERIA COMERCIAL' in v or ('CONTADOR' in v and 'AUDITOR' in v)) for v in variants}
                     if len(restricted)>1:review.append('Conflicto de carrera afecta restricción de Emprendimiento')
-            if not e[field]:issue('ADVERTENCIA','Sin '+field,mat);review.append('Sin '+field)
+            if not e[field]:
+                issue('ADVERTENCIA','Sin '+field,mat)
+                # An absent current-master row for this semester's intake is
+                # reported below; it must not itself change the academic state.
+                if not (field=='carrera' and r['semester_enrolled']==current and master_row is None):
+                    review.append('Sin '+field)
         if mat not in grades:issue('INFORMACIÓN','Inscrito sin calificaciones',mat,'Puede ser nuevo ingreso')
         e['review_reasons']=review
-        result=calculate_minor_status(e,grades.get(mat,[]),cat,exceptions or [],current)
+        result=calculate_minor_status(e,grades.get(mat,[]),cat,exceptions or [],current,blocked.get(e['minor'],()))
         histories.extend(result.pop('history'));enrollments.append(result)
         if result['requires_review']:issue('ERROR','Participación requiere revisión',mat,result['status_reason'])
+        if result['semester_enrolled']==current and master_row is None:
+            issue('ADVERTENCIA','Ingreso actual ausente del máster',mat,'La participación se conserva; falta en el padrón actual', 'master','')
     for mat in set(old.matricula)-set(en.matricula):issue('ADVERTENCIA','Sólo seguimiento',mat,'No se incorporó al universo inscrito')
     for r in courses[courses.confirmado!='SI'].to_dict('records'):issue('ADVERTENCIA','Catálogo pendiente','',r['codigo']+' '+r['minor']+' '+r['semestre_desde'])
     return {'enrollments':pd.DataFrame(enrollments),'history':pd.DataFrame(histories),'quality':pd.DataFrame(issues,columns=['nivel','tipo','matricula','detalle','fuente','fila_origen']),'courses':courses,'current':current}
