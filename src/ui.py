@@ -18,7 +18,6 @@ from .reconciliation import reconcile
 from .cleaning import norm
 from .semesters import normalize
 
-@st.cache_data(show_spinner=False,max_entries=4,ttl=900)
 def compute(files):
     sources={k:load_source(k,files[v]) for k,v in FILES.items()}
     if CIP_FILE in files:sources['cip_historico']=load_cip(files[CIP_FILE])
@@ -135,7 +134,13 @@ def commit_candidate(storage,files,version,candidate,actor,role,changes):
     audit=json.loads(candidate.get('audit.json',b'[]'))
     audit.append({'timestamp':datetime.now(timezone.utc).isoformat(),'actor':actor,'changes':changes,'previous_version':version})
     candidate['audit.json']=json.dumps(audit,ensure_ascii=False).encode()
-    storage.write(candidate,version);st.session_state.pop('snapshot',None);st.session_state.pop('candidate',None);compute.clear();st.success('Actualización guardada.');st.rerun()
+    storage.write(candidate,version)
+    from .runtime_cache import clear_snapshot_calculation_cache
+    clear_snapshot_calculation_cache()
+    st.session_state.pop('snapshot',None)
+    st.session_state.pop('_loaded_snapshot_cache_key',None)
+    st.session_state.pop('candidate',None)
+    st.success('Actualización guardada.');st.rerun()
 
 def update(r,files,version,storage,actor,role):
     require_admin(role)
